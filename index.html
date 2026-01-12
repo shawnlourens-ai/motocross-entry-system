@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Motocross Track Entry</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- ZXing PDF417 Scanner -->
+<script src="https://unpkg.com/@zxing/library@latest"></script>
+
+<!-- EmailJS SDK -->
+<script src="https://cdn.emailjs.com/sdk/3.2/email.min.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+body { 
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
+  margin: 0;
+  padding: 20px;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.header {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px 12px 0 0;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.header h1 {
+  margin: 0;
+  color: #333;
+  font-size: 24px;
+}
+
+.header .subtitle {
+  color: #666;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.progress {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 20px;
+  padding: 0 10px;
+}
+
+.progress-step {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #e0e0e0;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+  position: relative;
+}
+
+.progress-step.active {
+  background: #ff6b35;
+  color: #fff;
+}
+
+.progress-step.complete {
+  background: #4caf50;
+  color: #fff;
+}
+
+.progress-line {
+  flex: 1;
+  height: 3px;
+  background: #e0e0e0;
+  margin: 0 8px;
+}
+
+.progress-line.complete {
+  background: #4caf50;
+}
+
+.card {
+  display: none;
+  background: #fff;
+  padding: 30px 20px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.card.active {
+  display: block;
+}
+
+.footer {
+  background: #fff;
+  padding: 15px 20px;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  display: flex;
+  gap: 10px;
+}
+
+h2 {
+  margin: 0 0 20px 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+label {
+  display: block;
+  margin-bottom: 6px;
+  color: #555;
+  font-weight: 500;
+  font-size: 14px;
+}
+
+label.required::after {
+  content: " *";
+  color: #ff6b35;
+}
+
+input[type="text"],
+input[type="number"],
+input[type="tel"],
+input[type="email"] {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+  transition: border-color 0.3s;
+}
+
+input:focus {
+  outline: none;
+  border-color: #ff6b35;
+}
+
+input.error {
+  border-color: #f44336;
+}
+
+.error-message {
+  color: #f44336;
+  font-size: 13px;
+  margin-top: 4px;
+  display: none;
+}
+
+.error-message.show {
+  display: block;
+}
+
+button {
+  padding: 14px 20px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: #ff6b35;
+  color: #fff;
+  flex: 1;
+}
+
+.btn-primary:hover {
+  background: #e65a2b;
+}
+
+.btn-primary:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #6c757d;
+  color: #fff;
+}
+
+.btn-secondary:hover {
+  background: #5a6268;
+}
+
+.btn-scan {
+  background: #2196f3;
+  color: #fff;
+  width: 100%;
+}
+
+.btn-scan:hover {
+  background: #1976d2;
+}
+
+.btn-restart {
+  background: #6c757d;
+  color: #fff;
+}
+
+.btn-restart:hover {
+  background: #5a6268;
+}
+
+video {
+  width: 100%;
+  margin-top: 12px;
+  border-radius: 8px;
+  border: 2px solid #ddd;
+  display: none;
+}
+
+video.active {
+  display: block;
+}
+
+.info-box {
+  background: #fff3e0;
+  border-left: 4px solid #ff9800;
+  padding: 12px;
+  margin-bottom: 16px;
+  border-radius: 4px;
+  font-size: 14px;
+  color: #666;
+}
+
+.total-display {
+  background: #f5f5f5;
+  padding: 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+  text-align: center;
+}
+
+.total-display .label {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.total-display .amount {
+  font-size: 32px;
+  font-weight: bold;
+  color: #ff6b35;
+}
+
+.summary-table {
+  width: 100%;
+  margin-top: 16px;
+  border-collapse: collapse;
+}
+
+.summary-table td {
+  padding: 8px 0;
+  border-bottom: 1px solid #eee;
+}
+
+.summary-table td:first-child {
+  color: #666;
+  font-size: 14px;
+}
+
+.summary-table td:last-child {
+  text-align: right;
+  font-weight: 500;
+  color: #333;
+}
+
+.checkbox-group {
+  background: #fffde7;
+  border: 2px solid #fbc02d;
+  padding: 16px;
+  border-radius: 8px;
+  margin: 16px 0;
+}
+
+.checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.checkbox-label input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+.checkbox-label span {
+  flex: 1;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.5;
+}
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.loading-overlay.show {
+  display: flex;
+}
+
+.spinner {
+  width: 50px;
+  height: 50px;
+  border: 5px solid #f3f3f3;
+  border-top: 5px solid #ff6b35;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.success-message {
+  background: #4caf50;
+  color: #fff;
+  padding: 16px;
+  border-radius: 8px;
+  text-align: center;
+  margin-bottom: 16px;
+  display: none;
+}
+
+.success-message.show {
+  display: block;
+}
+
+@media (max-width: 480px) {
+  body {
+    padding: 10px;
+  }
+  
+  .card {
+    padding: 20px 16px;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <div class="header">
+    <h1>🏍️ Motocross Track</h1>
+    <div class="subtitle">Entry Registration System</div>
+    
+    <!-- Progress Indicator -->
+    <div class="progress">
+      <div class="progress-step active" id="step1">1</div>
+      <div class="progress-line" id="line1"></div>
+      <div class="progress-step" id="step2">2</div>
+      <div class="progress-line" id="line2"></div>
+      <div class="progress-step" id="step3">3</div>
+    </div>
+  </div>
+
+  <!-- CARD 1: Scan & Motorcycles -->
+  <div class="card active" id="card1">
+    <h2>Step 1: Vehicle Registration</h2>
+
+    <div class="info-box">
+      📱 <strong>Tip:</strong> Use Safari on iPhone. If scanning fails, enter registration manually below.
+    </div>
+
+    <button type="button" class="btn-scan" id="scanButton">
+      📷 Scan License Disc Barcode
+    </button>
+    
+    <video id="video" playsinline></video>
+    <button type="button" class="btn-secondary" id="stopScanButton" style="display:none; width:100%; margin-top:8px;">
+      ✕ Stop Camera
+    </button>
+
+    <div class="form-group">
+      <label for="vehicleReg" class="required">Vehicle Registration</label>
+      <input type="text" id="vehicleReg" placeholder="e.g., CA 123456" maxlength="20">
+      <div class="error-message" id="vehicleRegError">Please enter vehicle registration</div>
+    </div>
+
+    <div class="form-group">
+      <label for="motorcycles" class="required">Number of Motorcycles</label>
+      <input type="number" id="motorcycles" placeholder="1" min="1" max="50" value="1">
+      <div class="error-message" id="motorcyclesError">Please enter number of motorcycles</div>
+    </div>
+
+    <div class="total-display">
+      <div class="label">Entry Fee (R150 per motorcycle)</div>
+      <div class="amount">R<span id="total">150</span></div>
+    </div>
+  </div>
+
+  <!-- CARD 2: Customer Info -->
+  <div class="card" id="card2">
+    <h2>Step 2: Client Details</h2>
+
+    <div class="total-display">
+      <div class="label">Amount Due</div>
+      <div class="amount">R<span id="total2">150</span></div>
+    </div>
+
+    <div class="form-group">
+      <label for="name" class="required">First Name</label>
+      <input type="text" id="name" placeholder="John">
+      <div class="error-message" id="nameError">Please enter first name</div>
+    </div>
+
+    <div class="form-group">
+      <label for="surname" class="required">Surname</label>
+      <input type="text" id="surname" placeholder="Smith">
+      <div class="error-message" id="surnameError">Please enter surname</div>
+    </div>
+
+    <div class="form-group">
+      <label for="phone" class="required">Telephone Number</label>
+      <input type="tel" id="phone" placeholder="0821234567">
+      <div class="error-message" id="phoneError">Please enter valid phone number</div>
+    </div>
+
+    <div class="form-group">
+      <label for="email">Email Address (Optional)</label>
+      <input type="email" id="email" placeholder="email@example.com">
+      <div class="error-message" id="emailError">Please enter valid email address</div>
+      <div style="font-size:12px; color:#666; margin-top:4px;">
+        📧 Provide email to receive a receipt copy
+      </div>
+    </div>
+  </div>
+
+  <!-- CARD 3: Payment Confirmation -->
+  <div class="card" id="card3">
+    <h2>Step 3: Confirm Payment</h2>
+
+    <div class="success-message" id="successMessage">
+      ✓ Transaction completed successfully! Receipt sent.
+    </div>
+
+    <table class="summary-table">
+      <tr>
+        <td>Vehicle Registration:</td>
+        <td id="summaryVehicleReg">-</td>
+      </tr>
+      <tr>
+        <td>Client Name:</td>
+        <td id="summaryName">-</td>
+      </tr>
+      <tr>
+        <td>Phone Number:</td>
+        <td id="summaryPhone">-</td>
+      </tr>
+      <tr>
+        <td>Email Address:</td>
+        <td id="summaryEmail">Not provided</td>
+      </tr>
+      <tr>
+        <td>Number of Motorcycles:</td>
+        <td id="summaryMotorcycles">-</td>
+      </tr>
+      <tr style="font-weight:bold; font-size:16px;">
+        <td style="color:#ff6b35;">Total Amount:</td>
+        <td style="color:#ff6b35;">R<span id="summaryTotal">-</span></td>
+      </tr>
+    </table>
+
+    <div class="checkbox-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="paid">
+        <span><strong>I confirm that payment of R<span id="confirmTotal">0</span> has been received from the client</strong></span>
+      </label>
+    </div>
+
+    <button type="button" class="btn-primary" id="completeButton" onclick="complete()" style="width:100%;">
+      ✓ Complete Transaction
+    </button>
+  </div>
+
+  <!-- Footer Navigation -->
+  <div class="footer">
+    <button type="button" class="btn-restart" onclick="restartForm()">
+      ↻ Restart
+    </button>
+    <button type="button" class="btn-primary" id="nextButton" onclick="nextCard()">
+      Next →
+    </button>
+  </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+</div>
+
+<script>
+/* ======================
+   CONFIG - YOUR CREDENTIALS
+====================== */
+const PRICE_PER_MOTORCYCLE = 150;
+
+// EmailJS Configuration (Already configured with your credentials)
+emailjs.init("1fovTEqPOuwgcomem"); // Your Public Key
+const SERVICE_ID = "service_b3o7uon"; // Your Service ID
+const TEMPLATE_ID = "template_se4lmxj"; // Your Template ID (Auto-Reply)
+const TRACK_EMAIL = "erora@ybox.co.za"; // Track records email
+
+/* ======================
+   GLOBAL VARIABLES
+====================== */
+let currentCard = 1;
+let codeReader;
+let scanning = false;
+let videoStream = null;
+let latitude = "";
+let longitude = "";
+
+/* ======================
+   GEOLOCATION
+====================== */
+if (navigator.geolocation) {
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      latitude = pos.coords.latitude.toFixed(6);
+      longitude = pos.coords.longitude.toFixed(6);
+    },
+    err => console.log("Geolocation error:", err)
+  );
+}
+
+/* ======================
+   CALCULATE TOTAL
+====================== */
+document.getElementById("motorcycles").addEventListener("input", e => {
+  const qty = parseInt(e.target.value) || 0;
+  const total = qty * PRICE_PER_MOTORCYCLE;
+  document.getElementById("total").innerText = total;
+});
+
+// Initialize with default value
+document.getElementById("total").innerText = PRICE_PER_MOTORCYCLE;
+
+/* ======================
+   START SCAN
+====================== */
+document.getElementById("scanButton").addEventListener("click", async function() {
+  if (scanning) return;
+
+  const video = document.getElementById("video");
+  const scanButton = document.getElementById("scanButton");
+  const stopButton = document.getElementById("stopScanButton");
+
+  try {
+    videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" }
+    });
+
+    video.srcObject = videoStream;
+    video.classList.add("active");
+    await video.play();
+
+    scanning = true;
+    scanButton.style.display = "none";
+    stopButton.style.display = "block";
+
+    codeReader = new ZXing.BrowserPDF417Reader();
+
+    codeReader.decodeFromVideoElement(video)
+      .then(result => {
+        handleScan(result.text);
+      })
+      .catch(err => {
+        console.error("Scan error:", err);
+        alert("Scanning failed. Please enter Vehicle Registration manually.");
+        stopScan();
+      });
+
+  } catch (err) {
+    console.error("Camera access failed:", err);
+    alert("Camera access denied. Please enter Vehicle Registration manually or check browser permissions.");
+    stopScan();
+  }
+});
+
+/* ======================
+   STOP SCAN
+====================== */
+document.getElementById("stopScanButton").addEventListener("click", stopScan);
+
+function stopScan() {
+  const video = document.getElementById("video");
+  const scanButton = document.getElementById("scanButton");
+  const stopButton = document.getElementById("stopScanButton");
+
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+    videoStream = null;
+  }
+
+  if (codeReader) {
+    codeReader.reset();
+  }
+
+  video.classList.remove("active");
+  video.srcObject = null;
+  scanning = false;
+  scanButton.style.display = "block";
+  stopButton.style.display = "none";
+}
+
+/* ======================
+   HANDLE SCAN RESULT
+====================== */
+function handleScan(text) {
+  console.log("Scanned data:", text);
+  
+  // South African license disc PDF417 format: fields separated by %
+  const parts = text.split("%");
+  
+  // Try multiple possible positions for vehicle registration
+  let vehicleReg = "";
+  
+  if (parts.length >= 7) {
+    vehicleReg = parts[6].trim(); // Standard position
+  } else if (parts.length >= 1) {
+    // Fallback: use first non-empty field
+    vehicleReg = parts.find(p => p.trim().length > 0) || "";
+  }
+  
+  if (vehicleReg) {
+    document.getElementById("vehicleReg").value = vehicleReg;
+    alert("✓ Vehicle registration scanned: " + vehicleReg);
+  } else {
+    alert("Could not extract registration. Please enter manually.");
+  }
+  
+  stopScan();
+}
+
+/* ======================
+   VALIDATION
+====================== */
+function validateCard1() {
+  let valid = true;
+  
+  const vehicleReg = document.getElementById("vehicleReg").value.trim();
+  const motorcycles = parseInt(document.getElementById("motorcycles").value);
+  
+  // Validate vehicle reg
+  if (!vehicleReg) {
+    showError("vehicleReg", "vehicleRegError");
+    valid = false;
+  } else {
+    hideError("vehicleReg", "vehicleRegError");
+  }
+  
+  // Validate motorcycles
+  if (!motorcycles || motorcycles < 1) {
+    showError("motorcycles", "motorcyclesError");
+    valid = false;
+  } else {
+    hideError("motorcycles", "motorcyclesError");
+  }
+  
+  return valid;
+}
+
+function validateCard2() {
+  let valid = true;
+  
+  const name = document.getElementById("name").value.trim();
+  const surname = document.getElementById("surname").value.trim();
+  const phone = document.getElementById("phone").value.trim();
+  const email = document.getElementById("email").value.trim();
+  
+  // Validate name
+  if (!name) {
+    showError("name", "nameError");
+    valid = false;
+  } else {
+    hideError("name", "nameError");
+  }
+  
+  // Validate surname
+  if (!surname) {
+    showError("surname", "surnameError");
+    valid = false;
+  } else {
+    hideError("surname", "surnameError");
+  }
+  
+  // Validate phone (basic South African format)
+  const phoneRegex = /^0\d{9}$/;
+  if (!phone || !phoneRegex.test(phone.replace(/\s/g, ''))) {
+    showError("phone", "phoneError");
+    valid = false;
+  } else {
+    hideError("phone", "phoneError");
+  }
+  
+  // Validate email if provided
+  if (email) {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showError("email", "emailError");
+      valid = false;
+    } else {
+      hideError("email", "emailError");
+    }
+  } else {
+    hideError("email", "emailError");
+  }
+  
+  return valid;
+}
+
+function showError(inputId, errorId) {
+  document.getElementById(inputId).classList.add("error");
+  document.getElementById(errorId).classList.add("show");
+}
+
+function hideError(inputId, errorId) {
+  document.getElementById(inputId).classList.remove("error");
+  document.getElementById(errorId).classList.remove("show");
+}
+
+/* ======================
+   NAVIGATION
+====================== */
+function nextCard() {
+  // Validate current card
+  if (currentCard === 1 && !validateCard1()) {
+    return;
+  }
+  
+  if (currentCard === 2 && !validateCard2()) {
+    return;
+  }
+  
+  // Stop camera if active
+  if (scanning) {
+    stopScan();
+  }
+  
+  // Update current card
+  currentCard++;
+  
+  // Hide all cards
+  document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
+  
+  // Show next card
+  document.getElementById("card" + currentCard).classList.add("active");
+  
+  // Update progress
+  updateProgress();
+  
+  // Update next button
+  if (currentCard === 3) {
+    document.getElementById("nextButton").style.display = "none";
+    populateSummary();
+  } else {
+    document.getElementById("nextButton").style.display = "block";
+  }
+  
+  // Transfer total to card 2
+  if (currentCard === 2) {
+    document.getElementById("total2").innerText = document.getElementById("total").innerText;
+  }
+}
+
+function updateProgress() {
+  // Update step indicators
+  for (let i = 1; i <= 3; i++) {
+    const step = document.getElementById("step" + i);
+    if (i < currentCard) {
+      step.classList.add("complete");
+      step.classList.remove("active");
+    } else if (i === currentCard) {
+      step.classList.add("active");
+      step.classList.remove("complete");
+    } else {
+      step.classList.remove("active", "complete");
+    }
+  }
+  
+  // Update lines
+  for (let i = 1; i <= 2; i++) {
+    const line = document.getElementById("line" + i);
+    if (i < currentCard) {
+      line.classList.add("complete");
+    } else {
+      line.classList.remove("complete");
+    }
+  }
+}
+
+function populateSummary() {
+  const total = document.getElementById("total").innerText;
+  
+  document.getElementById("summaryVehicleReg").innerText = document.getElementById("vehicleReg").value;
+  document.getElementById("summaryName").innerText = 
+    document.getElementById("name").value + " " + document.getElementById("surname").value;
+  document.getElementById("summaryPhone").innerText = document.getElementById("phone").value;
+  
+  const email = document.getElementById("email").value.trim();
+  document.getElementById("summaryEmail").innerText = email || "Not provided";
+  
+  document.getElementById("summaryMotorcycles").innerText = document.getElementById("motorcycles").value;
+  document.getElementById("summaryTotal").innerText = total;
+  document.getElementById("confirmTotal").innerText = total;
+}
+
+/* ======================
+   RESTART FORM
+====================== */
+function restartForm() {
+  if (confirm("Are you sure you want to restart? All entered data will be lost.")) {
+    // Stop camera
+    stopScan();
+    
+    // Reset all fields
+    document.getElementById("vehicleReg").value = "";
+    document.getElementById("motorcycles").value = "1";
+    document.getElementById("name").value = "";
+    document.getElementById("surname").value = "";
+    document.getElementById("phone").value = "";
+    document.getElementById("email").value = "";
+    document.getElementById("paid").checked = false;
+    
+    // Reset totals
+    document.getElementById("total").innerText = PRICE_PER_MOTORCYCLE;
+    
+    // Clear errors
+    document.querySelectorAll(".error").forEach(el => el.classList.remove("error"));
+    document.querySelectorAll(".error-message").forEach(el => el.classList.remove("show"));
+    
+    // Hide success message
+    document.getElementById("successMessage").classList.remove("show");
+    
+    // Reset to card 1
+    currentCard = 1;
+    document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
+    document.getElementById("card1").classList.add("active");
+    document.getElementById("nextButton").style.display = "block";
+    
+    updateProgress();
+  }
+}
+
+/* ======================
+   COMPLETE & EMAIL
+====================== */
+async function complete() {
+  if (!document.getElementById("paid").checked) {
+    alert("⚠️ Please confirm that payment has been received before completing.");
+    return;
+  }
+  
+  const loadingOverlay = document.getElementById("loadingOverlay");
+  const completeButton = document.getElementById("completeButton");
+  
+  try {
+    // Show loading
+    loadingOverlay.classList.add("show");
+    completeButton.disabled = true;
+    
+    // Prepare data
+    const receiptNumber = "MX" + Date.now();
+    const dateTime = new Date().toLocaleString("en-ZA", {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false
+    });
+    
+    const emailData = {
+      receipt_number: receiptNumber,
+      vehicle_reg: document.getElementById("vehicleReg").value,
+      motorcycles: document.getElementById("motorcycles").value,
+      total: document.getElementById("total").innerText,
+      name: document.getElementById("name").value,
+      surname: document.getElementById("surname").value,
+      phone: document.getElementById("phone").value,
+      email: document.getElementById("email").value.trim() || "Not provided",
+      lat: latitude || "Not available",
+      lng: longitude || "Not available",
+      date: dateTime
+    };
+    
+    // Send to track records (always) using Auto-Reply template
+    await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+      ...emailData,
+      to_email: TRACK_EMAIL
+    });
+    
+    // Send to client if email provided
+    const clientEmail = document.getElementById("email").value.trim();
+    if (clientEmail) {
+      await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
+        ...emailData,
+        to_email: clientEmail
+      });
+    }
+    
+    // Hide loading
+    loadingOverlay.classList.remove("show");
+    completeButton.disabled = false;
+    
+    // Show success message
+    document.getElementById("successMessage").classList.add("show");
+    
+    // Auto-restart after 3 seconds
+    setTimeout(() => {
+      restartForm();
+    }, 3000);
+    
+  } catch (err) {
+    console.error("Email error:", err);
+    loadingOverlay.classList.remove("show");
+    completeButton.disabled = false;
+    alert("❌ Error sending receipt: " + err.text + "\n\nPlease note transaction details manually:\nReceipt: " + receiptNumber);
+  }
+}
+
+/* ======================
+   PREVENT ACCIDENTAL NAVIGATION
+====================== */
+window.addEventListener("beforeunload", (e) => {
+  if (currentCard > 1) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+</script>
+
+</body>
+</html>
