@@ -5,12 +5,6 @@
 <title>Motocross Track Entry</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<!-- ZXing PDF417 Scanner -->
-<script src="https://unpkg.com/@zxing/library@latest"></script>
-
-<!-- EmailJS SDK -->
-<script src="https://cdn.emailjs.com/sdk/3.2/email.min.js"></script>
-
 <style>
 * { box-sizing: border-box; }
 body { 
@@ -212,6 +206,11 @@ button {
   background: #1976d2;
 }
 
+.btn-scan:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
 .btn-restart {
   background: #6c757d;
   color: #fff;
@@ -325,6 +324,7 @@ video.active {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+  flex-direction: column;
 }
 
 .loading-overlay.show {
@@ -338,6 +338,12 @@ video.active {
   border-top: 5px solid #ff6b35;
   border-radius: 50%;
   animation: spin 1s linear infinite;
+}
+
+.loading-text {
+  color: #fff;
+  margin-top: 15px;
+  font-size: 14px;
 }
 
 @keyframes spin {
@@ -356,6 +362,20 @@ video.active {
 }
 
 .success-message.show {
+  display: block;
+}
+
+.alert-box {
+  background: #f44336;
+  color: #fff;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+  display: none;
+}
+
+.alert-box.show {
   display: block;
 }
 
@@ -392,6 +412,8 @@ video.active {
   <!-- CARD 1: Scan & Motorcycles -->
   <div class="card active" id="card1">
     <h2>Step 1: Vehicle Registration</h2>
+
+    <div class="alert-box" id="alertBox"></div>
 
     <div class="info-box">
       📱 <strong>Tip:</strong> Use Safari on iPhone. If scanning fails, enter registration manually below.
@@ -522,19 +544,50 @@ video.active {
 <!-- Loading Overlay -->
 <div class="loading-overlay" id="loadingOverlay">
   <div class="spinner"></div>
+  <div class="loading-text">Processing...</div>
 </div>
+
+<!-- Load Libraries -->
+<script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
+<script src="https://cdn.emailjs.com/sdk/3.2/email.min.js"></script>
 
 <script>
 /* ======================
-   CONFIG - YOUR CREDENTIALS
+   WAIT FOR LIBRARIES TO LOAD
+====================== */
+let librariesLoaded = false;
+let emailjsReady = false;
+let zxingReady = false;
+
+window.addEventListener('load', function() {
+  // Check if EmailJS loaded
+  if (typeof emailjs !== 'undefined') {
+    emailjsReady = true;
+    console.log('✓ EmailJS loaded');
+  } else {
+    showAlert('EmailJS library failed to load. Email functionality may not work.');
+  }
+  
+  // Check if ZXing loaded
+  if (typeof ZXing !== 'undefined') {
+    zxingReady = true;
+    console.log('✓ ZXing loaded');
+  } else {
+    showAlert('Barcode scanner library failed to load. Use manual entry instead.');
+    document.getElementById('scanButton').disabled = true;
+  }
+  
+  librariesLoaded = true;
+  initializeApp();
+});
+
+/* ======================
+   CONFIG
 ====================== */
 const PRICE_PER_MOTORCYCLE = 150;
-
-// EmailJS Configuration (Already configured with your credentials)
-emailjs.init("1fovTEqPOuwgcomem"); // Your Public Key
-const SERVICE_ID = "service_b3o7uon"; // Your Service ID
-const TEMPLATE_ID = "template_se4lmxj"; // Your Template ID (Auto-Reply)
-const TRACK_EMAIL = "erora@ybox.co.za"; // Track records email
+const SERVICE_ID = "service_b3o7uon";
+const TEMPLATE_ID = "template_se4lmxj";
+const TRACK_EMAIL = "erora@ybox.co.za";
 
 /* ======================
    GLOBAL VARIABLES
@@ -547,35 +600,64 @@ let latitude = "";
 let longitude = "";
 
 /* ======================
-   GEOLOCATION
+   INITIALIZE APP
 ====================== */
-if (navigator.geolocation) {
-  navigator.geolocation.getCurrentPosition(
-    pos => {
-      latitude = pos.coords.latitude.toFixed(6);
-      longitude = pos.coords.longitude.toFixed(6);
-    },
-    err => console.log("Geolocation error:", err)
-  );
+function initializeApp() {
+  // Initialize EmailJS
+  if (emailjsReady) {
+    try {
+      emailjs.init("1fovTEqPOuwgcomem");
+      console.log('✓ EmailJS initialized');
+    } catch (err) {
+      console.error('EmailJS init error:', err);
+      showAlert('Email service initialization failed.');
+    }
+  }
+  
+  // Get geolocation
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        latitude = pos.coords.latitude.toFixed(6);
+        longitude = pos.coords.longitude.toFixed(6);
+        console.log('✓ Location obtained');
+      },
+      err => console.log("Geolocation error:", err)
+    );
+  }
+}
+
+/* ======================
+   SHOW ALERT
+====================== */
+function showAlert(message) {
+  const alertBox = document.getElementById('alertBox');
+  alertBox.textContent = '⚠️ ' + message;
+  alertBox.classList.add('show');
+  setTimeout(() => {
+    alertBox.classList.remove('show');
+  }, 5000);
 }
 
 /* ======================
    CALCULATE TOTAL
 ====================== */
-document.getElementById("motorcycles").addEventListener("input", e => {
+document.getElementById("motorcycles").addEventListener("input", function(e) {
   const qty = parseInt(e.target.value) || 0;
   const total = qty * PRICE_PER_MOTORCYCLE;
   document.getElementById("total").innerText = total;
 });
-
-// Initialize with default value
-document.getElementById("total").innerText = PRICE_PER_MOTORCYCLE;
 
 /* ======================
    START SCAN
 ====================== */
 document.getElementById("scanButton").addEventListener("click", async function() {
   if (scanning) return;
+  
+  if (!zxingReady) {
+    alert('Barcode scanner not available. Please enter vehicle registration manually.');
+    return;
+  }
 
   const video = document.getElementById("video");
   const scanButton = document.getElementById("scanButton");
@@ -629,7 +711,11 @@ function stopScan() {
   }
 
   if (codeReader) {
-    codeReader.reset();
+    try {
+      codeReader.reset();
+    } catch (e) {
+      console.log('Error resetting codeReader:', e);
+    }
   }
 
   video.classList.remove("active");
@@ -645,16 +731,12 @@ function stopScan() {
 function handleScan(text) {
   console.log("Scanned data:", text);
   
-  // South African license disc PDF417 format: fields separated by %
   const parts = text.split("%");
-  
-  // Try multiple possible positions for vehicle registration
   let vehicleReg = "";
   
   if (parts.length >= 7) {
-    vehicleReg = parts[6].trim(); // Standard position
+    vehicleReg = parts[6].trim();
   } else if (parts.length >= 1) {
-    // Fallback: use first non-empty field
     vehicleReg = parts.find(p => p.trim().length > 0) || "";
   }
   
@@ -677,7 +759,6 @@ function validateCard1() {
   const vehicleReg = document.getElementById("vehicleReg").value.trim();
   const motorcycles = parseInt(document.getElementById("motorcycles").value);
   
-  // Validate vehicle reg
   if (!vehicleReg) {
     showError("vehicleReg", "vehicleRegError");
     valid = false;
@@ -685,7 +766,6 @@ function validateCard1() {
     hideError("vehicleReg", "vehicleRegError");
   }
   
-  // Validate motorcycles
   if (!motorcycles || motorcycles < 1) {
     showError("motorcycles", "motorcyclesError");
     valid = false;
@@ -704,7 +784,6 @@ function validateCard2() {
   const phone = document.getElementById("phone").value.trim();
   const email = document.getElementById("email").value.trim();
   
-  // Validate name
   if (!name) {
     showError("name", "nameError");
     valid = false;
@@ -712,7 +791,6 @@ function validateCard2() {
     hideError("name", "nameError");
   }
   
-  // Validate surname
   if (!surname) {
     showError("surname", "surnameError");
     valid = false;
@@ -720,7 +798,6 @@ function validateCard2() {
     hideError("surname", "surnameError");
   }
   
-  // Validate phone (basic South African format)
   const phoneRegex = /^0\d{9}$/;
   if (!phone || !phoneRegex.test(phone.replace(/\s/g, ''))) {
     showError("phone", "phoneError");
@@ -729,7 +806,6 @@ function validateCard2() {
     hideError("phone", "phoneError");
   }
   
-  // Validate email if provided
   if (email) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
@@ -759,7 +835,6 @@ function hideError(inputId, errorId) {
    NAVIGATION
 ====================== */
 function nextCard() {
-  // Validate current card
   if (currentCard === 1 && !validateCard1()) {
     return;
   }
@@ -768,24 +843,17 @@ function nextCard() {
     return;
   }
   
-  // Stop camera if active
   if (scanning) {
     stopScan();
   }
   
-  // Update current card
   currentCard++;
   
-  // Hide all cards
   document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
-  
-  // Show next card
   document.getElementById("card" + currentCard).classList.add("active");
   
-  // Update progress
   updateProgress();
   
-  // Update next button
   if (currentCard === 3) {
     document.getElementById("nextButton").style.display = "none";
     populateSummary();
@@ -793,14 +861,12 @@ function nextCard() {
     document.getElementById("nextButton").style.display = "block";
   }
   
-  // Transfer total to card 2
   if (currentCard === 2) {
     document.getElementById("total2").innerText = document.getElementById("total").innerText;
   }
 }
 
 function updateProgress() {
-  // Update step indicators
   for (let i = 1; i <= 3; i++) {
     const step = document.getElementById("step" + i);
     if (i < currentCard) {
@@ -814,7 +880,6 @@ function updateProgress() {
     }
   }
   
-  // Update lines
   for (let i = 1; i <= 2; i++) {
     const line = document.getElementById("line" + i);
     if (i < currentCard) {
@@ -846,10 +911,8 @@ function populateSummary() {
 ====================== */
 function restartForm() {
   if (confirm("Are you sure you want to restart? All entered data will be lost.")) {
-    // Stop camera
     stopScan();
     
-    // Reset all fields
     document.getElementById("vehicleReg").value = "";
     document.getElementById("motorcycles").value = "1";
     document.getElementById("name").value = "";
@@ -858,17 +921,13 @@ function restartForm() {
     document.getElementById("email").value = "";
     document.getElementById("paid").checked = false;
     
-    // Reset totals
     document.getElementById("total").innerText = PRICE_PER_MOTORCYCLE;
     
-    // Clear errors
     document.querySelectorAll(".error").forEach(el => el.classList.remove("error"));
     document.querySelectorAll(".error-message").forEach(el => el.classList.remove("show"));
     
-    // Hide success message
     document.getElementById("successMessage").classList.remove("show");
     
-    // Reset to card 1
     currentCard = 1;
     document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
     document.getElementById("card1").classList.add("active");
@@ -887,15 +946,18 @@ async function complete() {
     return;
   }
   
+  if (!emailjsReady) {
+    alert("❌ Email service is not available. Please check your internet connection and try again.");
+    return;
+  }
+  
   const loadingOverlay = document.getElementById("loadingOverlay");
   const completeButton = document.getElementById("completeButton");
   
   try {
-    // Show loading
     loadingOverlay.classList.add("show");
     completeButton.disabled = true;
     
-    // Prepare data
     const receiptNumber = "MX" + Date.now();
     const dateTime = new Date().toLocaleString("en-ZA", {
       year: 'numeric',
@@ -921,7 +983,7 @@ async function complete() {
       date: dateTime
     };
     
-    // Send to track records (always) using Auto-Reply template
+    // Send to track records
     await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
       ...emailData,
       to_email: TRACK_EMAIL
@@ -936,14 +998,11 @@ async function complete() {
       });
     }
     
-    // Hide loading
     loadingOverlay.classList.remove("show");
     completeButton.disabled = false;
     
-    // Show success message
     document.getElementById("successMessage").classList.add("show");
     
-    // Auto-restart after 3 seconds
     setTimeout(() => {
       restartForm();
     }, 3000);
@@ -952,20 +1011,15 @@ async function complete() {
     console.error("Email error:", err);
     loadingOverlay.classList.remove("show");
     completeButton.disabled = false;
-    alert("❌ Error sending receipt: " + err.text + "\n\nPlease note transaction details manually:\nReceipt: " + receiptNumber);
+    
+    const errorMsg = err.text || err.message || "Unknown error";
+    alert("❌ Error sending receipt: " + errorMsg + "\n\nPlease note transaction details manually.");
   }
 }
 
 /* ======================
    PREVENT ACCIDENTAL NAVIGATION
 ====================== */
-window.addEventListener("beforeunload", (e) => {
+window.addEventListener("beforeunload", function(e) {
   if (currentCard > 1) {
     e.preventDefault();
-    e.returnValue = "";
-  }
-});
-</script>
-
-</body>
-</html>
