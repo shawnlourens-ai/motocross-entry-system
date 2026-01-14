@@ -9,7 +9,7 @@
 <script src="https://unpkg.com/@zxing/library@latest/umd/index.min.js"></script>
 
 <!-- EmailJS SDK -->
-<script src="https://cdn.emailjs.com/sdk/3.2/email.min.js"></script>
+<script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
 
 <style>
 * { box-sizing: border-box; }
@@ -576,15 +576,30 @@ var longitude = "";
    INITIALIZE EMAILJS
 ====================== */
 window.addEventListener('load', function() {
-  try {
-    if (typeof emailjs !== 'undefined') {
-      emailjs.init("1fovTEqPOuwgcomem");
+  console.log('Page loaded, checking libraries...');
+  
+  // Check EmailJS - it might be under different names
+  var emailjsLib = null;
+  if (typeof emailjs !== 'undefined') {
+    emailjsLib = emailjs;
+  } else if (typeof window.emailjs !== 'undefined') {
+    emailjsLib = window.emailjs;
+  } else if (typeof Email !== 'undefined') {
+    emailjsLib = Email;
+  }
+  
+  if (emailjsLib) {
+    try {
+      emailjsLib.init("1fovTEqPOuwgcomem");
+      window.emailjs = emailjsLib; // Make sure it's globally accessible
       console.log('✓ EmailJS initialized');
-    } else {
-      console.error('EmailJS library not loaded');
+    } catch (err) {
+      console.error('EmailJS init error:', err);
+      alert('Email service failed to initialize. Emails may not be sent.');
     }
-  } catch (err) {
-    console.error('EmailJS init error:', err);
+  } else {
+    console.error('EmailJS library not loaded');
+    alert('Email service not available. Please refresh the page or check your internet connection.');
   }
   
   if (typeof ZXing !== 'undefined') {
@@ -592,6 +607,7 @@ window.addEventListener('load', function() {
   } else {
     console.error('ZXing library not loaded');
     document.getElementById('scanButton').disabled = true;
+    alert('Barcode scanner not available. Please use manual entry.');
   }
 });
 
