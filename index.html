@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>ERORA Motocross Track Entry</title>
+<title>Motocross Track Entry</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <style>
@@ -525,17 +525,17 @@ video.active {
       </label>
     </div>
 
-    <button type="button" class="btn-primary" id="completeButton" onclick="complete()" style="width:100%;">
+    <button type="button" class="btn-primary" id="completeButton" style="width:100%;">
       ✓ Complete Transaction
     </button>
   </div>
 
   <!-- Footer Navigation -->
   <div class="footer">
-    <button type="button" class="btn-restart" onclick="restartForm()">
+    <button type="button" class="btn-restart" id="restartButton">
       ↻ Restart
     </button>
-    <button type="button" class="btn-primary" id="nextButton" onclick="nextCard()">
+    <button type="button" class="btn-primary" id="nextButton">
       Next →
     </button>
   </div>
@@ -553,35 +553,6 @@ video.active {
 
 <script>
 /* ======================
-   WAIT FOR LIBRARIES TO LOAD
-====================== */
-let librariesLoaded = false;
-let emailjsReady = false;
-let zxingReady = false;
-
-window.addEventListener('load', function() {
-  // Check if EmailJS loaded
-  if (typeof emailjs !== 'undefined') {
-    emailjsReady = true;
-    console.log('✓ EmailJS loaded');
-  } else {
-    showAlert('EmailJS library failed to load. Email functionality may not work.');
-  }
-  
-  // Check if ZXing loaded
-  if (typeof ZXing !== 'undefined') {
-    zxingReady = true;
-    console.log('✓ ZXing loaded');
-  } else {
-    showAlert('Barcode scanner library failed to load. Use manual entry instead.');
-    document.getElementById('scanButton').disabled = true;
-  }
-  
-  librariesLoaded = true;
-  initializeApp();
-});
-
-/* ======================
    CONFIG
 ====================== */
 const PRICE_PER_MOTORCYCLE = 150;
@@ -593,166 +564,45 @@ const TRACK_EMAIL = "erora@ybox.co.za";
    GLOBAL VARIABLES
 ====================== */
 let currentCard = 1;
-let codeReader;
+let codeReader = null;
 let scanning = false;
 let videoStream = null;
 let latitude = "";
 let longitude = "";
-
-/* ======================
-   INITIALIZE APP
-====================== */
-function initializeApp() {
-  // Initialize EmailJS
-  if (emailjsReady) {
-    try {
-      emailjs.init("1fovTEqPOuwgcomem");
-      console.log('✓ EmailJS initialized');
-    } catch (err) {
-      console.error('EmailJS init error:', err);
-      showAlert('Email service initialization failed.');
-    }
-  }
-  
-  // Get geolocation
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      pos => {
-        latitude = pos.coords.latitude.toFixed(6);
-        longitude = pos.coords.longitude.toFixed(6);
-        console.log('✓ Location obtained');
-      },
-      err => console.log("Geolocation error:", err)
-    );
-  }
-}
+let emailjsReady = false;
+let zxingReady = false;
 
 /* ======================
    SHOW ALERT
 ====================== */
 function showAlert(message) {
   const alertBox = document.getElementById('alertBox');
-  alertBox.textContent = '⚠️ ' + message;
-  alertBox.classList.add('show');
-  setTimeout(() => {
-    alertBox.classList.remove('show');
-  }, 5000);
+  if (alertBox) {
+    alertBox.textContent = '⚠️ ' + message;
+    alertBox.classList.add('show');
+    setTimeout(() => {
+      alertBox.classList.remove('show');
+    }, 5000);
+  }
 }
 
 /* ======================
-   CALCULATE TOTAL
+   VALIDATION FUNCTIONS
 ====================== */
-document.getElementById("motorcycles").addEventListener("input", function(e) {
-  const qty = parseInt(e.target.value) || 0;
-  const total = qty * PRICE_PER_MOTORCYCLE;
-  document.getElementById("total").innerText = total;
-});
-
-/* ======================
-   START SCAN
-====================== */
-document.getElementById("scanButton").addEventListener("click", async function() {
-  if (scanning) return;
-  
-  if (!zxingReady) {
-    alert('Barcode scanner not available. Please enter vehicle registration manually.');
-    return;
-  }
-
-  const video = document.getElementById("video");
-  const scanButton = document.getElementById("scanButton");
-  const stopButton = document.getElementById("stopScanButton");
-
-  try {
-    videoStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" }
-    });
-
-    video.srcObject = videoStream;
-    video.classList.add("active");
-    await video.play();
-
-    scanning = true;
-    scanButton.style.display = "none";
-    stopButton.style.display = "block";
-
-    codeReader = new ZXing.BrowserPDF417Reader();
-
-    codeReader.decodeFromVideoElement(video)
-      .then(result => {
-        handleScan(result.text);
-      })
-      .catch(err => {
-        console.error("Scan error:", err);
-        alert("Scanning failed. Please enter Vehicle Registration manually.");
-        stopScan();
-      });
-
-  } catch (err) {
-    console.error("Camera access failed:", err);
-    alert("Camera access denied. Please enter Vehicle Registration manually or check browser permissions.");
-    stopScan();
-  }
-});
-
-/* ======================
-   STOP SCAN
-====================== */
-document.getElementById("stopScanButton").addEventListener("click", stopScan);
-
-function stopScan() {
-  const video = document.getElementById("video");
-  const scanButton = document.getElementById("scanButton");
-  const stopButton = document.getElementById("stopScanButton");
-
-  if (videoStream) {
-    videoStream.getTracks().forEach(track => track.stop());
-    videoStream = null;
-  }
-
-  if (codeReader) {
-    try {
-      codeReader.reset();
-    } catch (e) {
-      console.log('Error resetting codeReader:', e);
-    }
-  }
-
-  video.classList.remove("active");
-  video.srcObject = null;
-  scanning = false;
-  scanButton.style.display = "block";
-  stopButton.style.display = "none";
+function showError(inputId, errorId) {
+  const input = document.getElementById(inputId);
+  const error = document.getElementById(errorId);
+  if (input) input.classList.add("error");
+  if (error) error.classList.add("show");
 }
 
-/* ======================
-   HANDLE SCAN RESULT
-====================== */
-function handleScan(text) {
-  console.log("Scanned data:", text);
-  
-  const parts = text.split("%");
-  let vehicleReg = "";
-  
-  if (parts.length >= 7) {
-    vehicleReg = parts[6].trim();
-  } else if (parts.length >= 1) {
-    vehicleReg = parts.find(p => p.trim().length > 0) || "";
-  }
-  
-  if (vehicleReg) {
-    document.getElementById("vehicleReg").value = vehicleReg;
-    alert("✓ Vehicle registration scanned: " + vehicleReg);
-  } else {
-    alert("Could not extract registration. Please enter manually.");
-  }
-  
-  stopScan();
+function hideError(inputId, errorId) {
+  const input = document.getElementById(inputId);
+  const error = document.getElementById(errorId);
+  if (input) input.classList.remove("error");
+  if (error) error.classList.remove("show");
 }
 
-/* ======================
-   VALIDATION
-====================== */
 function validateCard1() {
   let valid = true;
   
@@ -821,54 +671,67 @@ function validateCard2() {
   return valid;
 }
 
-function showError(inputId, errorId) {
-  document.getElementById(inputId).classList.add("error");
-  document.getElementById(errorId).classList.add("show");
-}
+/* ======================
+   STOP SCAN
+====================== */
+function stopScan() {
+  const video = document.getElementById("video");
+  const scanButton = document.getElementById("scanButton");
+  const stopButton = document.getElementById("stopScanButton");
 
-function hideError(inputId, errorId) {
-  document.getElementById(inputId).classList.remove("error");
-  document.getElementById(errorId).classList.remove("show");
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+    videoStream = null;
+  }
+
+  if (codeReader) {
+    try {
+      codeReader.reset();
+    } catch (e) {
+      console.log('Error resetting codeReader:', e);
+    }
+  }
+
+  if (video) video.classList.remove("active");
+  if (video) video.srcObject = null;
+  scanning = false;
+  if (scanButton) scanButton.style.display = "block";
+  if (stopButton) stopButton.style.display = "none";
 }
 
 /* ======================
-   NAVIGATION
+   HANDLE SCAN RESULT
 ====================== */
-function nextCard() {
-  if (currentCard === 1 && !validateCard1()) {
-    return;
+function handleScan(text) {
+  console.log("Scanned data:", text);
+  
+  const parts = text.split("%");
+  let vehicleReg = "";
+  
+  if (parts.length >= 7) {
+    vehicleReg = parts[6].trim();
+  } else if (parts.length >= 1) {
+    vehicleReg = parts.find(p => p.trim().length > 0) || "";
   }
   
-  if (currentCard === 2 && !validateCard2()) {
-    return;
-  }
-  
-  if (scanning) {
-    stopScan();
-  }
-  
-  currentCard++;
-  
-  document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
-  document.getElementById("card" + currentCard).classList.add("active");
-  
-  updateProgress();
-  
-  if (currentCard === 3) {
-    document.getElementById("nextButton").style.display = "none";
-    populateSummary();
+  if (vehicleReg) {
+    document.getElementById("vehicleReg").value = vehicleReg;
+    alert("✓ Vehicle registration scanned: " + vehicleReg);
   } else {
-    document.getElementById("nextButton").style.display = "block";
+    alert("Could not extract registration. Please enter manually.");
   }
   
-  if (currentCard === 2) {
-    document.getElementById("total2").innerText = document.getElementById("total").innerText;
-  }
+  stopScan();
 }
 
+/* ======================
+   PROGRESS UPDATE
+====================== */
 function updateProgress() {
   for (let i = 1; i <= 3; i++) {
     const step = document.getElementById("step" + i);
+    if (!step) continue;
+    
     if (i < currentCard) {
       step.classList.add("complete");
       step.classList.remove("active");
@@ -882,6 +745,8 @@ function updateProgress() {
   
   for (let i = 1; i <= 2; i++) {
     const line = document.getElementById("line" + i);
+    if (!line) continue;
+    
     if (i < currentCard) {
       line.classList.add("complete");
     } else {
@@ -890,6 +755,9 @@ function updateProgress() {
   }
 }
 
+/* ======================
+   POPULATE SUMMARY
+====================== */
 function populateSummary() {
   const total = document.getElementById("total").innerText;
   
@@ -907,34 +775,77 @@ function populateSummary() {
 }
 
 /* ======================
+   NAVIGATION - NEXT CARD
+====================== */
+function nextCard() {
+  if (currentCard === 1 && !validateCard1()) {
+    return;
+  }
+  
+  if (currentCard === 2 && !validateCard2()) {
+    return;
+  }
+  
+  if (scanning) {
+    stopScan();
+  }
+  
+  currentCard++;
+  
+  document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
+  const nextCardEl = document.getElementById("card" + currentCard);
+  if (nextCardEl) nextCardEl.classList.add("active");
+  
+  updateProgress();
+  
+  const nextButton = document.getElementById("nextButton");
+  if (currentCard === 3) {
+    if (nextButton) nextButton.style.display = "none";
+    populateSummary();
+  } else {
+    if (nextButton) nextButton.style.display = "block";
+  }
+  
+  if (currentCard === 2) {
+    const total = document.getElementById("total").innerText;
+    document.getElementById("total2").innerText = total;
+  }
+}
+
+/* ======================
    RESTART FORM
 ====================== */
 function restartForm() {
-  if (confirm("Are you sure you want to restart? All entered data will be lost.")) {
-    stopScan();
-    
-    document.getElementById("vehicleReg").value = "";
-    document.getElementById("motorcycles").value = "1";
-    document.getElementById("name").value = "";
-    document.getElementById("surname").value = "";
-    document.getElementById("phone").value = "";
-    document.getElementById("email").value = "";
-    document.getElementById("paid").checked = false;
-    
-    document.getElementById("total").innerText = PRICE_PER_MOTORCYCLE;
-    
-    document.querySelectorAll(".error").forEach(el => el.classList.remove("error"));
-    document.querySelectorAll(".error-message").forEach(el => el.classList.remove("show"));
-    
-    document.getElementById("successMessage").classList.remove("show");
-    
-    currentCard = 1;
-    document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
-    document.getElementById("card1").classList.add("active");
-    document.getElementById("nextButton").style.display = "block";
-    
-    updateProgress();
+  if (!confirm("Are you sure you want to restart? All entered data will be lost.")) {
+    return;
   }
+  
+  stopScan();
+  
+  document.getElementById("vehicleReg").value = "";
+  document.getElementById("motorcycles").value = "1";
+  document.getElementById("name").value = "";
+  document.getElementById("surname").value = "";
+  document.getElementById("phone").value = "";
+  document.getElementById("email").value = "";
+  document.getElementById("paid").checked = false;
+  
+  document.getElementById("total").innerText = PRICE_PER_MOTORCYCLE;
+  
+  document.querySelectorAll(".error").forEach(el => el.classList.remove("error"));
+  document.querySelectorAll(".error-message").forEach(el => el.classList.remove("show"));
+  
+  const successMsg = document.getElementById("successMessage");
+  if (successMsg) successMsg.classList.remove("show");
+  
+  currentCard = 1;
+  document.querySelectorAll(".card").forEach(c => c.classList.remove("active"));
+  document.getElementById("card1").classList.add("active");
+  
+  const nextButton = document.getElementById("nextButton");
+  if (nextButton) nextButton.style.display = "block";
+  
+  updateProgress();
 }
 
 /* ======================
@@ -955,8 +866,8 @@ async function complete() {
   const completeButton = document.getElementById("completeButton");
   
   try {
-    loadingOverlay.classList.add("show");
-    completeButton.disabled = true;
+    if (loadingOverlay) loadingOverlay.classList.add("show");
+    if (completeButton) completeButton.disabled = true;
     
     const receiptNumber = "MX" + Date.now();
     const dateTime = new Date().toLocaleString("en-ZA", {
@@ -998,10 +909,11 @@ async function complete() {
       });
     }
     
-    loadingOverlay.classList.remove("show");
-    completeButton.disabled = false;
+    if (loadingOverlay) loadingOverlay.classList.remove("show");
+    if (completeButton) completeButton.disabled = false;
     
-    document.getElementById("successMessage").classList.add("show");
+    const successMsg = document.getElementById("successMessage");
+    if (successMsg) successMsg.classList.add("show");
     
     setTimeout(() => {
       restartForm();
@@ -1009,8 +921,8 @@ async function complete() {
     
   } catch (err) {
     console.error("Email error:", err);
-    loadingOverlay.classList.remove("show");
-    completeButton.disabled = false;
+    if (loadingOverlay) loadingOverlay.classList.remove("show");
+    if (completeButton) completeButton.disabled = false;
     
     const errorMsg = err.text || err.message || "Unknown error";
     alert("❌ Error sending receipt: " + errorMsg + "\n\nPlease note transaction details manually.");
@@ -1018,8 +930,81 @@ async function complete() {
 }
 
 /* ======================
-   PREVENT ACCIDENTAL NAVIGATION
+   INITIALIZE ON LOAD
 ====================== */
-window.addEventListener("beforeunload", function(e) {
-  if (currentCard > 1) {
-    e.preventDefault();
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('DOM loaded, initializing...');
+  
+  // Check if EmailJS loaded
+  if (typeof emailjs !== 'undefined') {
+    try {
+      emailjs.init("1fovTEqPOuwgcomem");
+      emailjsReady = true;
+      console.log('✓ EmailJS initialized');
+    } catch (err) {
+      console.error('EmailJS init error:', err);
+      showAlert('Email service initialization failed.');
+    }
+  } else {
+    console.error('EmailJS not loaded');
+    showAlert('EmailJS library failed to load.');
+  }
+  
+  // Check if ZXing loaded
+  if (typeof ZXing !== 'undefined') {
+    zxingReady = true;
+    console.log('✓ ZXing loaded');
+  } else {
+    console.error('ZXing not loaded');
+    showAlert('Barcode scanner library failed to load. Use manual entry.');
+    const scanBtn = document.getElementById('scanButton');
+    if (scanBtn) scanBtn.disabled = true;
+  }
+  
+  // Get geolocation
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        latitude = pos.coords.latitude.toFixed(6);
+        longitude = pos.coords.longitude.toFixed(6);
+        console.log('✓ Location obtained');
+      },
+      err => console.log("Geolocation error:", err)
+    );
+  }
+  
+  // Setup motorcycle input listener
+  const motorcyclesInput = document.getElementById("motorcycles");
+  if (motorcyclesInput) {
+    motorcyclesInput.addEventListener("input", function(e) {
+      const qty = parseInt(e.target.value) || 0;
+      const total = qty * PRICE_PER_MOTORCYCLE;
+      document.getElementById("total").innerText = total;
+    });
+  }
+  
+  // Setup scan button
+  const scanButton = document.getElementById("scanButton");
+  if (scanButton) {
+    scanButton.addEventListener("click", async function() {
+      if (scanning) return;
+      
+      if (!zxingReady) {
+        alert('Barcode scanner not available. Please enter vehicle registration manually.');
+        return;
+      }
+
+      const video = document.getElementById("video");
+      const stopButton = document.getElementById("stopScanButton");
+
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" }
+        });
+
+        video.srcObject = videoStream;
+        video.classList.add("active");
+        await video.play();
+
+        scanning = true;
+        scan
