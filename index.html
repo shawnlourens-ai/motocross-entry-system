@@ -421,11 +421,6 @@ video.active {
 
     <div class="alert-box" id="alertBox"></div>
 
-    <div class="info-box" id="scanDebug" style="display:none; background:#e3f2fd; border-left-color:#2196f3;">
-      <strong>Scan Debug:</strong><br>
-      <span id="debugText"></span>
-    </div>
-
     <div class="info-box">
       📱 <strong>Tip:</strong> Use Safari on iPhone. If scanning fails, enter registration manually below.
     </div>
@@ -745,20 +740,12 @@ function stopScan() {
    HANDLE SCAN RESULT
 ====================== */
 function handleScan(text) {
-  var debugBox = document.getElementById("scanDebug");
-  var debugText = document.getElementById("debugText");
-  
-  // Show debug box
-  debugBox.style.display = "block";
-  debugText.innerHTML = "Processing barcode...";
-  
   console.log("=== BARCODE SCANNED ===");
   console.log("Full barcode data:", text);
   
   // Split by % symbol
   var parts = text.split("%");
-  
-  debugText.innerHTML = "Found " + parts.length + " fields<br>";
+  console.log("Found " + parts.length + " fields");
   
   var vehicleReg = "";
   
@@ -771,14 +758,14 @@ function handleScan(text) {
       vehicleReg = vehicleReg.trim();
     }
     
-    debugText.innerHTML += "Position 6: '" + vehicleReg + "'<br>";
+    console.log("Position 6: '" + vehicleReg + "'");
   } else {
-    debugText.innerHTML += "ERROR: Only " + parts.length + " fields found<br>";
+    console.log("ERROR: Only " + parts.length + " fields found");
   }
   
   // Validate we have something
   if (vehicleReg && vehicleReg.length >= 2) {
-    debugText.innerHTML += "✓ Valid: " + vehicleReg + "<br>";
+    console.log("✓ Valid: " + vehicleReg);
     
     // Get the input field
     var regField = document.getElementById("vehicleReg");
@@ -789,16 +776,11 @@ function handleScan(text) {
     // Set the value
     regField.value = vehicleReg;
     
-    // Double check it was set
-    if (regField.value === vehicleReg) {
-      debugText.innerHTML += "✓ Field updated<br>";
-    } else {
-      debugText.innerHTML += "❌ Field update failed<br>";
-    }
+    console.log("✓ Field updated to: " + regField.value);
     
     // Stop camera
     stopScan();
-    debugText.innerHTML += "✓ Camera stopped<br>";
+    console.log("✓ Camera stopped");
     
     // Focus on motorcycles field after a delay
     setTimeout(function() {
@@ -806,32 +788,24 @@ function handleScan(text) {
         var motorcyclesField = document.getElementById("motorcycles");
         motorcyclesField.focus();
         motorcyclesField.select();
-        debugText.innerHTML += "✓ Cursor moved<br>";
-        
-        // Hide debug after 5 seconds
-        setTimeout(function() {
-          debugBox.style.display = "none";
-        }, 5000);
-        
+        console.log("✓ Cursor moved to motorcycles field");
       } catch (e) {
-        debugText.innerHTML += "❌ Focus error: " + e.message + "<br>";
+        console.log("Focus error: " + e.message);
       }
     }, 300);
     
-    alert("✓ Scanned: " + vehicleReg);
-    
   } else {
     // Failed to extract
-    debugText.innerHTML += "❌ FAILED<br>";
+    console.log("❌ FAILED to extract registration");
     
     if (parts.length > 0) {
-      debugText.innerHTML += "All fields:<br>";
+      console.log("All fields:");
       for (var i = 0; i < Math.min(parts.length, 10); i++) {
-        debugText.innerHTML += "[" + i + "] = '" + parts[i] + "'<br>";
+        console.log("[" + i + "] = '" + parts[i] + "'");
       }
     }
     
-    alert("Could not extract registration.\n\nCheck the blue debug box for details.");
+    alert("Could not extract registration. Please enter manually.");
     stopScan();
   }
 }
