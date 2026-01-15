@@ -740,59 +740,60 @@ function stopScan() {
    HANDLE SCAN RESULT
 ====================== */
 function handleScan(text) {
-  console.log("Scanned barcode data:", text);
+  console.log("=== BARCODE SCANNED ===");
+  console.log("Full barcode data:", text);
   
   // South African license disc PDF417 format
   // Fields are separated by % character
+  // Vehicle registration is at position 6 (0-indexed, so parts[6])
   var parts = text.split("%");
+  
+  console.log("Total fields:", parts.length);
+  console.log("All fields:", parts);
+  
   var vehicleReg = "";
   
-  console.log("Barcode has", parts.length, "fields");
-  
-  // Try standard SA format - registration is typically in position 6 or 7
-  if (parts.length >= 7) {
-    // Position 6 (0-indexed)
+  // SA License disc format: Registration is at index 6
+  if (parts.length > 6) {
     vehicleReg = parts[6].trim();
-    console.log("Position 6:", vehicleReg);
+    console.log("Extracted from position 6:", vehicleReg);
   }
   
-  // If position 6 is empty or invalid, try position 7
-  if ((!vehicleReg || vehicleReg.length < 3) && parts.length >= 8) {
-    vehicleReg = parts[7].trim();
-    console.log("Position 7:", vehicleReg);
-  }
-  
-  // Fallback: look for a field that looks like a registration (letters and numbers)
-  if (!vehicleReg || vehicleReg.length < 3) {
-    for (var i = 0; i < parts.length; i++) {
-      var field = parts[i].trim();
-      // SA registration format: usually has letters and numbers, 4-10 chars
-      if (field.length >= 4 && field.length <= 10 && /[A-Z]/.test(field) && /[0-9]/.test(field)) {
-        vehicleReg = field;
-        console.log("Found registration at position", i, ":", vehicleReg);
-        break;
-      }
-    }
-  }
-  
+  // Validate that we got something
   if (vehicleReg && vehicleReg.length >= 3) {
-    // Successfully extracted registration
-    document.getElementById("vehicleReg").value = vehicleReg;
+    console.log("✓ Valid registration extracted:", vehicleReg);
+    
+    // Write to field
+    var regField = document.getElementById("vehicleReg");
+    regField.value = vehicleReg;
+    console.log("✓ Written to field");
     
     // Stop camera
     stopScan();
+    console.log("✓ Camera stopped");
     
     // Focus on motorcycles field
     setTimeout(function() {
-      document.getElementById("motorcycles").focus();
-      document.getElementById("motorcycles").select();
-    }, 100);
+      var motorcyclesField = document.getElementById("motorcycles");
+      motorcyclesField.focus();
+      motorcyclesField.select();
+      console.log("✓ Focused motorcycles field");
+    }, 200);
     
     // Show success message
-    alert("✓ Vehicle registration scanned successfully: " + vehicleReg);
+    alert("✓ Vehicle registration scanned: " + vehicleReg);
+    
   } else {
-    console.error("Could not extract registration from barcode. Full data:", text);
-    alert("Could not extract vehicle registration from barcode. Please enter manually.\n\nScanned data logged to console for debugging.");
+    console.error("❌ Failed to extract registration");
+    console.error("Position 6 value:", parts[6] || "EMPTY");
+    console.error("Total parts:", parts.length);
+    
+    // Log all positions for debugging
+    for (var i = 0; i < parts.length; i++) {
+      console.log("Position " + i + ":", parts[i]);
+    }
+    
+    alert("Could not extract vehicle registration from barcode.\n\nPosition 6 value: " + (parts[6] || "EMPTY") + "\n\nPlease enter manually or check Console (F12) for details.");
     stopScan();
   }
 }
