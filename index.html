@@ -653,7 +653,11 @@ document.getElementById("scanButton").addEventListener("click", async function()
 
   try {
     videoStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: "environment" }
+      video: { 
+        facingMode: "environment",
+        width: { ideal: 1920 },
+        height: { ideal: 1080 }
+      }
     });
 
     video.srcObject = videoStream;
@@ -664,17 +668,34 @@ document.getElementById("scanButton").addEventListener("click", async function()
     scanButton.style.display = "none";
     stopButton.style.display = "block";
 
-    codeReader = new ZXing.BrowserPDF417Reader();
-
-    codeReader.decodeFromVideoElement(video)
-      .then(function(result) {
-        handleScan(result.text);
-      })
-      .catch(function(err) {
-        console.error("Scan error:", err);
-        alert("Scanning failed. Please enter Vehicle Registration manually.");
-        stopScan();
-      });
+    // Use hints for better PDF417 detection
+    var hints = new Map();
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, [ZXing.BarcodeFormat.PDF_417]);
+    hints.set(ZXing.DecodeHintType.TRY_HARDER, true);
+    
+    codeReader = new ZXing.BrowserPDF417Reader(hints);
+    
+    // Continuous scanning
+    var scanInterval = setInterval(function() {
+      if (!scanning) {
+        clearInterval(scanInterval);
+        return;
+      }
+      
+      codeReader.decodeFromVideoElement(video)
+        .then(function(result) {
+          if (result && result.text) {
+            clearInterval(scanInterval);
+            handleScan(result.text);
+          }
+        })
+        .catch(function(err) {
+          // Ignore errors during scanning - keeps trying
+          if (err.name !== 'NotFoundException') {
+            console.log('Scan attempt:', err.name);
+          }
+        });
+    }, 500); // Scan every 500ms
 
   } catch (err) {
     console.error("Camera access failed:", err);
@@ -719,30 +740,61 @@ function stopScan() {
    HANDLE SCAN RESULT
 ====================== */
 function handleScan(text) {
-  console.log("Scanned data:", text);
+  console.log("Scanned barcode data:", text);
   
+  // South African license disc PDF417 format
+  // Fields are separated by % character
   var parts = text.split("%");
   var vehicleReg = "";
   
+  console.log("Barcode has", parts.length, "fields");
+  
+  // Try standard SA format - registration is typically in position 6 or 7
   if (parts.length >= 7) {
+    // Position 6 (0-indexed)
     vehicleReg = parts[6].trim();
-  } else if (parts.length >= 1) {
+    console.log("Position 6:", vehicleReg);
+  }
+  
+  // If position 6 is empty or invalid, try position 7
+  if ((!vehicleReg || vehicleReg.length < 3) && parts.length >= 8) {
+    vehicleReg = parts[7].trim();
+    console.log("Position 7:", vehicleReg);
+  }
+  
+  // Fallback: look for a field that looks like a registration (letters and numbers)
+  if (!vehicleReg || vehicleReg.length < 3) {
     for (var i = 0; i < parts.length; i++) {
-      if (parts[i].trim().length > 0) {
-        vehicleReg = parts[i].trim();
+      var field = parts[i].trim();
+      // SA registration format: usually has letters and numbers, 4-10 chars
+      if (field.length >= 4 && field.length <= 10 && /[A-Z]/.test(field) && /[0-9]/.test(field)) {
+        vehicleReg = field;
+        console.log("Found registration at position", i, ":", vehicleReg);
         break;
       }
     }
   }
   
-  if (vehicleReg) {
+  if (vehicleReg && vehicleReg.length >= 3) {
+    // Successfully extracted registration
     document.getElementById("vehicleReg").value = vehicleReg;
-    alert("✓ Vehicle registration scanned: " + vehicleReg);
+    
+    // Stop camera
+    stopScan();
+    
+    // Focus on motorcycles field
+    setTimeout(function() {
+      document.getElementById("motorcycles").focus();
+      document.getElementById("motorcycles").select();
+    }, 100);
+    
+    // Show success message
+    alert("✓ Vehicle registration scanned successfully: " + vehicleReg);
   } else {
-    alert("Could not extract registration. Please enter manually.");
+    console.error("Could not extract registration from barcode. Full data:", text);
+    alert("Could not extract vehicle registration from barcode. Please enter manually.\n\nScanned data logged to console for debugging.");
+    stopScan();
   }
-  
-  stopScan();
 }
 
 /* ======================
@@ -970,6 +1022,14 @@ document.getElementById("completeButton").addEventListener("click", async functi
     return;
   }
   
+  // Check if emailjs is available
+  if (typeof emailjs === 'undefined' && typeof window.emailjs === 'undefined') {
+    alert("❌ Email service is not available. Please refresh the page and try again.");
+    return;
+  }
+  
+  var emailjsService = window.emailjs || emailjs;
+  
   var loadingOverlay = document.getElementById("loadingOverlay");
   var completeButton = document.getElementById("completeButton");
   
@@ -1002,17 +1062,15 @@ document.getElementById("completeButton").addEventListener("click", async functi
       date: dateTime
     };
     
-    await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
-      ...emailData,
-      to_email: TRACK_EMAIL
-    });
+    // Send to track
+    var trackData = Object.assign({}, emailData, { to_email: TRACK_EMAIL });
+    await emailjsService.send(SERVICE_ID, TEMPLATE_ID, trackData);
     
+    // Send to client if email provided
     var clientEmail = document.getElementById("email").value.trim();
     if (clientEmail) {
-      await emailjs.send(SERVICE_ID, TEMPLATE_ID, {
-        ...emailData,
-        to_email: clientEmail
-      });
+      var clientData = Object.assign({}, emailData, { to_email: clientEmail });
+      await emailjsService.send(SERVICE_ID, TEMPLATE_ID, clientData);
     }
     
     loadingOverlay.classList.remove("show");
