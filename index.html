@@ -421,6 +421,11 @@ video.active {
 
     <div class="alert-box" id="alertBox"></div>
 
+    <div class="info-box" id="scanDebug" style="display:none; background:#e3f2fd; border-left-color:#2196f3;">
+      <strong>Scan Debug:</strong><br>
+      <span id="debugText"></span>
+    </div>
+
     <div class="info-box">
       📱 <strong>Tip:</strong> Use Safari on iPhone. If scanning fails, enter registration manually below.
     </div>
@@ -740,60 +745,93 @@ function stopScan() {
    HANDLE SCAN RESULT
 ====================== */
 function handleScan(text) {
+  var debugBox = document.getElementById("scanDebug");
+  var debugText = document.getElementById("debugText");
+  
+  // Show debug box
+  debugBox.style.display = "block";
+  debugText.innerHTML = "Processing barcode...";
+  
   console.log("=== BARCODE SCANNED ===");
   console.log("Full barcode data:", text);
   
-  // South African license disc PDF417 format
-  // Fields are separated by % character
-  // Vehicle registration is at position 6 (0-indexed, so parts[6])
+  // Split by % symbol
   var parts = text.split("%");
   
-  console.log("Total fields:", parts.length);
-  console.log("All fields:", parts);
+  debugText.innerHTML = "Found " + parts.length + " fields<br>";
   
   var vehicleReg = "";
   
-  // SA License disc format: Registration is at index 6
+  // Extract position 6 (0-indexed, so parts[6] is the 7th field)
   if (parts.length > 6) {
-    vehicleReg = parts[6].trim();
-    console.log("Extracted from position 6:", vehicleReg);
+    vehicleReg = parts[6];
+    
+    // Remove any whitespace
+    if (vehicleReg) {
+      vehicleReg = vehicleReg.trim();
+    }
+    
+    debugText.innerHTML += "Position 6: '" + vehicleReg + "'<br>";
+  } else {
+    debugText.innerHTML += "ERROR: Only " + parts.length + " fields found<br>";
   }
   
-  // Validate that we got something
-  if (vehicleReg && vehicleReg.length >= 3) {
-    console.log("✓ Valid registration extracted:", vehicleReg);
+  // Validate we have something
+  if (vehicleReg && vehicleReg.length >= 2) {
+    debugText.innerHTML += "✓ Valid: " + vehicleReg + "<br>";
     
-    // Write to field
+    // Get the input field
     var regField = document.getElementById("vehicleReg");
+    
+    // Clear it first
+    regField.value = "";
+    
+    // Set the value
     regField.value = vehicleReg;
-    console.log("✓ Written to field");
+    
+    // Double check it was set
+    if (regField.value === vehicleReg) {
+      debugText.innerHTML += "✓ Field updated<br>";
+    } else {
+      debugText.innerHTML += "❌ Field update failed<br>";
+    }
     
     // Stop camera
     stopScan();
-    console.log("✓ Camera stopped");
+    debugText.innerHTML += "✓ Camera stopped<br>";
     
-    // Focus on motorcycles field
+    // Focus on motorcycles field after a delay
     setTimeout(function() {
-      var motorcyclesField = document.getElementById("motorcycles");
-      motorcyclesField.focus();
-      motorcyclesField.select();
-      console.log("✓ Focused motorcycles field");
-    }, 200);
+      try {
+        var motorcyclesField = document.getElementById("motorcycles");
+        motorcyclesField.focus();
+        motorcyclesField.select();
+        debugText.innerHTML += "✓ Cursor moved<br>";
+        
+        // Hide debug after 5 seconds
+        setTimeout(function() {
+          debugBox.style.display = "none";
+        }, 5000);
+        
+      } catch (e) {
+        debugText.innerHTML += "❌ Focus error: " + e.message + "<br>";
+      }
+    }, 300);
     
-    // Show success message
-    alert("✓ Vehicle registration scanned: " + vehicleReg);
+    alert("✓ Scanned: " + vehicleReg);
     
   } else {
-    console.error("❌ Failed to extract registration");
-    console.error("Position 6 value:", parts[6] || "EMPTY");
-    console.error("Total parts:", parts.length);
+    // Failed to extract
+    debugText.innerHTML += "❌ FAILED<br>";
     
-    // Log all positions for debugging
-    for (var i = 0; i < parts.length; i++) {
-      console.log("Position " + i + ":", parts[i]);
+    if (parts.length > 0) {
+      debugText.innerHTML += "All fields:<br>";
+      for (var i = 0; i < Math.min(parts.length, 10); i++) {
+        debugText.innerHTML += "[" + i + "] = '" + parts[i] + "'<br>";
+      }
     }
     
-    alert("Could not extract vehicle registration from barcode.\n\nPosition 6 value: " + (parts[6] || "EMPTY") + "\n\nPlease enter manually or check Console (F12) for details.");
+    alert("Could not extract registration.\n\nCheck the blue debug box for details.");
     stopScan();
   }
 }
