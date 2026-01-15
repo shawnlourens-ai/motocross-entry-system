@@ -639,6 +639,9 @@ document.getElementById("motorcycles").addEventListener("input", function(e) {
 /* ======================
    START SCAN
 ====================== */
+var scanAttempts = 0;
+var maxScanAttempts = 100; // Will try for ~50 seconds
+
 document.getElementById("scanButton").addEventListener("click", async function() {
   if (scanning) return;
   
@@ -665,8 +668,12 @@ document.getElementById("scanButton").addEventListener("click", async function()
     await video.play();
 
     scanning = true;
+    scanAttempts = 0;
     scanButton.style.display = "none";
     stopButton.style.display = "block";
+    
+    // Change button text to show scanning status
+    stopButton.innerHTML = "⏹ Scanning... (0)";
 
     // Use hints for better PDF417 detection
     var hints = new Map();
@@ -682,17 +689,34 @@ document.getElementById("scanButton").addEventListener("click", async function()
         return;
       }
       
+      scanAttempts++;
+      
+      // Update button with attempt count
+      if (stopButton) {
+        stopButton.innerHTML = "⏹ Scanning... (" + scanAttempts + ")";
+      }
+      
+      // Stop after max attempts
+      if (scanAttempts >= maxScanAttempts) {
+        clearInterval(scanInterval);
+        alert("Scan timeout. Please try again or enter registration manually.");
+        stopScan();
+        return;
+      }
+      
       codeReader.decodeFromVideoElement(video)
         .then(function(result) {
           if (result && result.text) {
             clearInterval(scanInterval);
+            console.log("✓ Barcode detected after " + scanAttempts + " attempts");
             handleScan(result.text);
           }
         })
         .catch(function(err) {
-          // Ignore errors during scanning - keeps trying
-          if (err.name !== 'NotFoundException') {
-            console.log('Scan attempt:', err.name);
+          // Ignore "not found" errors - keeps trying
+          // Only log other types of errors
+          if (err.name !== 'NotFoundException' && err.name !== 'ChecksumException') {
+            console.log('Scan error:', err.name, err.message);
           }
         });
     }, 500); // Scan every 500ms
@@ -710,9 +734,9 @@ document.getElementById("scanButton").addEventListener("click", async function()
 document.getElementById("stopScanButton").addEventListener("click", stopScan);
 
 function stopScan() {
-  var video = document.getElementById("video");
-  var scanButton = document.getElementById("scanButton");
-  var stopButton = document.getElementById("stopScanButton");
+  const video = document.getElementById("video");
+  const scanButton = document.getElementById("scanButton");
+  const stopButton = document.getElementById("stopScanButton");
 
   if (videoStream) {
     videoStream.getTracks().forEach(function(track) {
@@ -733,6 +757,9 @@ function stopScan() {
   video.srcObject = null;
   scanning = false;
   scanButton.style.display = "block";
+  
+  // Reset button text
+  stopButton.innerHTML = "✕ Stop Camera";
   stopButton.style.display = "none";
 }
 
@@ -763,50 +790,65 @@ function handleScan(text) {
     console.log("ERROR: Only " + parts.length + " fields found");
   }
   
-  // Validate we have something
+  // Validate we have something (at least 2 characters)
   if (vehicleReg && vehicleReg.length >= 2) {
-    console.log("✓ Valid: " + vehicleReg);
+    console.log("✓ Valid registration: " + vehicleReg);
     
-    // Get the input field
-    var regField = document.getElementById("vehicleReg");
-    
-    // Clear it first
-    regField.value = "";
-    
-    // Set the value
-    regField.value = vehicleReg;
-    
-    console.log("✓ Field updated to: " + regField.value);
-    
-    // Stop camera
+    // Stop camera FIRST before any other operations
     stopScan();
-    console.log("✓ Camera stopped");
     
-    // Focus on motorcycles field after a delay
+    // Small delay to ensure camera is fully stopped
     setTimeout(function() {
-      try {
-        var motorcyclesField = document.getElementById("motorcycles");
-        motorcyclesField.focus();
-        motorcyclesField.select();
-        console.log("✓ Cursor moved to motorcycles field");
-      } catch (e) {
-        console.log("Focus error: " + e.message);
-      }
-    }, 300);
+      // Get the input field
+      var regField = document.getElementById("vehicleReg");
+      
+      // Clear it first
+      regField.value = "";
+      
+      // Set the value
+      regField.value = vehicleReg;
+      
+      // Force update
+      regField.setAttribute("value", vehicleReg);
+      
+      console.log("✓ Field updated to: " + regField.value);
+      
+      // Brief visual confirmation - flash the field green
+      regField.style.borderColor = "#4caf50";
+      regField.style.backgroundColor = "#e8f5e9";
+      
+      setTimeout(function() {
+        regField.style.borderColor = "";
+        regField.style.backgroundColor = "";
+      }, 1000);
+      
+      // Focus on motorcycles field
+      setTimeout(function() {
+        try {
+          var motorcyclesField = document.getElementById("motorcycles");
+          motorcyclesField.focus();
+          motorcyclesField.select();
+          console.log("✓ Cursor moved to motorcycles field");
+        } catch (e) {
+          console.log("Focus error: " + e.message);
+        }
+      }, 500);
+      
+    }, 200);
     
   } else {
-    // Failed to extract
-    console.log("❌ FAILED to extract registration");
+    // Failed to extract - but keep camera open!
+    console.log("❌ Invalid or missing registration at position 6");
     
     if (parts.length > 0) {
-      console.log("All fields:");
+      console.log("First 10 fields:");
       for (var i = 0; i < Math.min(parts.length, 10); i++) {
         console.log("[" + i + "] = '" + parts[i] + "'");
       }
     }
     
-    alert("Could not extract registration. Please enter manually.");
-    stopScan();
+    // Don't stop scanning - let it keep trying
+    console.log("Continuing to scan...");
   }
 }
 
