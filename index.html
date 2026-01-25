@@ -412,6 +412,8 @@ video.active {
       <div class="progress-step" id="step2">2</div>
       <div class="progress-line" id="line2"></div>
       <div class="progress-step" id="step3">3</div>
+      <div class="progress-line" id="line3"></div>
+      <div class="progress-step" id="step4">4</div>
     </div>
   </div>
 
@@ -489,9 +491,27 @@ video.active {
     </div>
   </div>
 
-  <!-- CARD 3: Payment Confirmation -->
+  <!-- CARD 3: Handover Message -->
   <div class="card" id="card3">
-    <h2>Step 3: Confirm Payment</h2>
+    <div style="text-align: center; padding: 40px 20px;">
+      <div style="font-size: 48px; margin-bottom: 30px;">📱➡️👤</div>
+      <h2 style="font-size: 28px; color: #ff6b35; margin-bottom: 20px; line-height: 1.4;">
+        Please Return Device to Track Admissions Clerk
+      </h2>
+      <p style="font-size: 18px; color: #666; margin-bottom: 30px;">
+        The clerk will now verify payment and complete your entry registration.
+      </p>
+      <div style="background: #f5f5f5; padding: 20px; border-radius: 8px; margin-top: 30px;">
+        <p style="font-size: 16px; color: #333; margin: 0;">
+          <strong>Amount Due:</strong> <span style="color: #ff6b35; font-size: 24px;">R<span id="total3">150</span></span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CARD 4: Payment Confirmation -->
+  <div class="card" id="card4">
+    <h2>Step 4: Confirm Payment</h2>
 
     <div class="success-message" id="successMessage">
       ✓ Transaction completed successfully! Receipt sent.
@@ -968,7 +988,7 @@ document.getElementById("nextButton").addEventListener("click", function() {
   
   updateProgress();
   
-  if (currentCard === 3) {
+  if (currentCard === 4) {
     document.getElementById("nextButton").style.display = "none";
     populateSummary();
   }
@@ -976,13 +996,17 @@ document.getElementById("nextButton").addEventListener("click", function() {
   if (currentCard === 2) {
     document.getElementById("total2").innerText = document.getElementById("total").innerText;
   }
+  
+  if (currentCard === 3) {
+    document.getElementById("total3").innerText = document.getElementById("total").innerText;
+  }
 });
 
 /* ======================
    UPDATE PROGRESS
 ====================== */
 function updateProgress() {
-  for (var i = 1; i <= 3; i++) {
+  for (var i = 1; i <= 4; i++) {
     var step = document.getElementById("step" + i);
     if (i < currentCard) {
       step.classList.add("complete");
@@ -995,7 +1019,7 @@ function updateProgress() {
     }
   }
   
-  for (var i = 1; i <= 2; i++) {
+  for (var i = 1; i <= 3; i++) {
     var line = document.getElementById("line" + i);
     if (i < currentCard) {
       line.classList.add("complete");
