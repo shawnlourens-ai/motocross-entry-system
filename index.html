@@ -580,7 +580,17 @@ video.active {
 const PRICE_PER_MOTORCYCLE = 150;
 const SERVICE_ID = "service_b3o7uon";
 const TEMPLATE_ID = "template_se4lmxj";
-const TRACK_EMAIL = "erora@ybox.co.za";
+
+// Multiple track emails - add as many as you need
+const TRACK_EMAILS = [
+  "erora@ybox.co.za",
+  "admin@yourtrack.com",
+  "accounting@yourtrack.com"
+  // Add more emails here if needed
+];
+
+// Google Sheets Web App URL - PASTE YOUR URL HERE
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbxSOFynq7pya-Ooa1HPGGhLNpNJZj-cDA-k7T7VAfmE-mpSOM2ZKgNGV-4JgL6ZDbMwxw/exec";
 
 /* ======================
    GLOBAL VARIABLES
@@ -1141,9 +1151,48 @@ document.getElementById("completeButton").addEventListener("click", async functi
       date: dateTime
     };
     
-    // Send to track
-    var trackData = Object.assign({}, emailData, { to_email: TRACK_EMAIL });
-    await emailjsService.send(SERVICE_ID, TEMPLATE_ID, trackData);
+    // Write to Google Sheet FIRST
+    try {
+      console.log("Writing to Google Sheet...");
+      
+      var sheetData = {
+        dateTime: dateTime,
+        vehicleReg: emailData.vehicle_reg,
+        motorcycles: emailData.motorcycles,
+        total: emailData.total,
+        name: emailData.name,
+        surname: emailData.surname,
+        phone: emailData.phone,
+        email: emailData.email,
+        geolocation: latitude && longitude ? latitude + ", " + longitude : "Not available"
+      };
+      
+      var sheetResponse = await fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(sheetData)
+      });
+      
+      console.log("✓ Data sent to Google Sheet");
+      
+    } catch (sheetErr) {
+      console.error("Google Sheet error (non-critical):", sheetErr);
+      // Continue anyway - don't let sheet failure stop the transaction
+    }
+    
+    // Send to all track emails
+    for (var i = 0; i < TRACK_EMAILS.length; i++) {
+      var trackEmail = TRACK_EMAILS[i];
+      console.log("Sending to track email: " + trackEmail);
+      
+      var trackData = Object.assign({}, emailData, { to_email: trackEmail });
+      await emailjsService.send(SERVICE_ID, TEMPLATE_ID, trackData);
+    }
+    
+    console.log("✓ Sent to " + TRACK_EMAILS.length + " track email(s)");
     
     // Send to client if email provided
     var clientEmail = document.getElementById("email").value.trim();
